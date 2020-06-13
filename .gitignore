@@ -1,2 +1,4 @@
 err.log
 .env
+*.idea*
+venv
