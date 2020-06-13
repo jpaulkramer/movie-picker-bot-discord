@@ -11,16 +11,11 @@ GUILD = os.getenv('DISCORD_GUILD')
 
 bot = commands.Bot(command_prefix='!')
 
-
 @bot.event
 async def on_ready():
     print(
         f'{bot.user.name} is connected to Discord!'
     )
-
-
-
-
 
 @bot.command(name='99', help='Responds with a random quote from Brooklyn 99')
 async def nine_nine(ctx):
@@ -53,12 +48,10 @@ async def on_message(message):
 
     if message.content == '99!':
         response = random.choice(brooklyn_99_quotes)
-        await message.channel.send(response)
-
-    elif ('inquisition' or 'Inquisition' or 'Inquisitor' or 'inquisitor' or 'inquisitive') in message.content:
+    elif ('inquisition' or 'inquisitor' or 'inquisitive') in message.content.lower():
         response = 'No one expects the Spanish Inquisition!'
-        await message.channel.send(response)
 
+    await message.channel.send(response)
     await bot.process_commands(message)
 
 @bot.event
