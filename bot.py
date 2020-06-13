@@ -34,6 +34,7 @@ async def add(ctx, arg):
     
     # Check for movie in list
     if not arg in movie_list.keys():
+        # TODO: add wildcard args to handle movies with spaces
         movie_list[arg] = 1
     else:
         add_response = f'{arg} is already in the list!'
@@ -65,6 +66,8 @@ async def remove(ctx, arg):
     
     # Check for movie in list
     if arg in movie_list.keys():
+        
+        # TODO: add wildcard args to handle movies with spaces
         movie_list.pop(arg)
     else:
         remove_response = f"{arg} isn't in the list, but nice try!"
@@ -77,6 +80,7 @@ async def pickmovie(ctx):
     
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
+    # TODO: Need a voting systems
     # Create weighted list
     selection_list = []
     for movie, score in movie_list.items():
