@@ -44,6 +44,10 @@ async def on_message(message):
             'no doubt no doubt no doubt no doubt.'
         ),
         'Noice. Smort.',
+        f'{message.author} is an amazing human / genius',
+        'Title of your sextape',
+        f'{message.author}, with all due respect, I am gonna completely ignore everything you just said.',
+        f'{message.author}. Good to see you. But if you’re here, who’s guarding Hades?'
     ]
 
     if message.content == '99!':
