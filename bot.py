@@ -70,8 +70,12 @@ async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
     movie_collection = get_movie_list()
-    for i, movie in enumerate(movie_collection):
-        list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
+
+    if len(movie_collection) == 0:
+         list_response += 'Empty!\n'
+    else:
+        for i, movie in enumerate(movie_collection):
+            list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
 
     await ctx.send(list_response)
 
