@@ -20,22 +20,10 @@ postgres_hostname = os.getenv('POSTGRES_HOSTNAME')
 postgres_database = os.getenv('DATABASE_NAME')
 movie_table = os.getenv('MOVIE_TABLE_NAME')
 
-# connect to postgres database
-try:
-    conn = psycopg2.connect(user=postgres_user,
-                            password=postgres_password,
-                            host=postgres_hostname,
-                            port="5432",
-                            database=postgres_database)
-
-except (Exception, psycopg2.Error) as error:
-    print("Error while connecting to PostgreSQL", error)
-
 bot = commands.Bot(command_prefix='!')
 
 # TODO: replace movie list & interactions with a database
 movie_list = {}
-
 
 @bot.event
 async def on_ready():
@@ -61,11 +49,8 @@ async def add(ctx, *args):
     # Check for movie in list
     if not movie_name in movie_list.keys():
         movie_list[movie_name] = 1
-
         try:
             addrecord(
-                conn=conn,
-                table=movie_table,
                 key='text',
                 title=movie_name,
                 submitter=ctx.message.author,
@@ -147,7 +132,7 @@ async def on_reaction_add(reaction, user):
     if '!add' in message.content:
         # isolate the arg (movie title)
         title = message.content.replace('!add ', '')
-        if title in movie_list.keys:
+        if title in movie_list.keys():
             votes = movie_list.get(title)
             votes = votes + 1
             movie_list.update(title=votes)

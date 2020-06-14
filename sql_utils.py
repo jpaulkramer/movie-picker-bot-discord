@@ -1,7 +1,25 @@
 import psycopg2
+import sqlalchemy as sqldb
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+engine_pattern = '{}://{}:{}@{}/{}'
 
-def addrecord(conn, table, key, title, submitter, votes=1):
+server = 'postgresql'
+user = os.getenv('POSTGRES_USER')
+pw = os.getenv('POSTGRES_PASSWORD')
+host = os.getenv('POSTGRES_HOSTNAME')
+database = os.getenv('DATABASE_NAME')
+movie_table = os.getenv('MOVIE_TABLE_NAME')
+
+engine_name = engine_pattern.format(server,
+                                    user, 
+                                    pw, 
+                                    host, 
+                                    database)
+
+def addrecord(key, title, submitter, votes=1):
     """
     adds record to specified table with user-specified key.
     :param conn:
@@ -12,20 +30,23 @@ def addrecord(conn, table, key, title, submitter, votes=1):
     :param votes:
     :return:
     """
-    try:
-        cursor = conn.cursor()
 
-        ins_query = 'INSERT INTO {} (ID, Title, Votes, Submitter) VALUES ({},{},{},{})'.format(table, key, title, votes,
-                                                                                               submitter)
-        
-        # Anton's edits: having issues with the query, messing with the format
-        # ins_query = "INSERT INTO {} (id, title, votes, submitter) VALUES ('{}','{}',{},'{}')".format(table, key, title, votes,
-        #                                                                                        submitter)
+    # to avoid case conflicts, set everything to lower
+    title = title.lower()
 
-        cursor.execute(ins_query)
+    engine = sqldb.create_engine(engine_name)
+    with engine.connect() as connection:
+        try:
+            raw_query = "INSERT INTO {} (ID, Title, Votes, Submitter) VALUES ('{}','{}',{},'{}');"
+            ins_query = raw_query.format(movie_table, key, title, votes, submitter)
+            connection.execute(ins_query)
 
-    except (Exception, psycopg2.error) as error:
-        print("Error while inserting record", error)
+        except Exception as error:
+            print("Error while inserting record", error)
+
+        finally: 
+            connection.close()
+            engine.dispose()
     return
 
 
@@ -42,7 +63,7 @@ def selectrecords(conn, table, where=''):
         sel_query = 'SELECT * FROM {} {})'.format(table, where)
         cursor.execute(sel_query)
         data = cursor.fetchall()
-    except (Exception, psycopg2.error) as error:
+    except Exception as error:
         print("Error while selecting records", error)
     return data
 
@@ -62,7 +83,7 @@ def updaterecord(conn, table, field, condition, value):
         update_query = 'UPDATE {} SET {} = {} where {} '.format(table, field, value, condition)
         cursor.execute(update_query)
 
-    except (Exception, psycopg2.error) as error:
+    except Exception as error:
         print("Error while updating records", error)
     return
 
@@ -80,6 +101,6 @@ def deleterecords(conn, table, condition):
         delete_query = 'DELETE FROM {} where {} '.format(table, condition)
         cursor.execute(delete_query)
 
-    except (Exception, psycopg2.error) as error:
+    except Exception as error:
         print("Error while updating records", error)
     return
