@@ -293,6 +293,7 @@ def vote_for_movie(movie, user):
     timestamp = datetime.now().replace(microsecond=0).isoformat().replace(':','-')
     votes = movie['votes']
     new_voters = "'"+movie['voters']+f'{user},'+"'"
+    timestamp = "'"+timestamp+"'"
     new_votes = votes + 1
     title = movie['title']
 
