@@ -106,7 +106,7 @@ async def list_movies(ctx):
     movie_collection = get_movie_list()
     
     if len(movie_collection) == 0:
-         list_response += 'Empty!\n'
+        list_response += 'Empty!\n'
     else:
         movie_tup_list = []
         for movie in movie_collection:
