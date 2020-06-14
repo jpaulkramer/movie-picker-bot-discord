@@ -186,13 +186,19 @@ async def on_message(message):
         f'{author_name}. Good to see you. But if you’re here, who’s guarding Hades?'
     ]
 
+    # Call patterns & responses!
     response = None
+    message_pattern = message.content.lower()
+    easter_egg_list = [
+        (['99!'], random.choice(brooklyn_99_quotes)),
+        (['difficult','hard','challenging'], 'No no no, super easy, barely an inconvenience'),
+        (['inquisition','inquisitor','inquisitive','inquiry','inquire'], 'No one expects the Spanish Inquisition!'),
+        (['treasure'], 'Maybe the real treasure was the friends we made along the way')
+    ]
 
-    # Message rules here!
-    if message.content == '99!':
-        response = random.choice(brooklyn_99_quotes)
-    elif ('inquisition' or 'inquisitor' or 'inquisitive' or 'inquire' or 'inquiry') in message.content.lower():
-        response = 'No one expects the Spanish Inquisition!'
+    for call, response_str in easter_egg_list:
+        if any(x in message_pattern for x in call):
+            response = response_str
 
     if response:
         await message.channel.send(response)
