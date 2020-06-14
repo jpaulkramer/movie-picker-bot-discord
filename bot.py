@@ -87,7 +87,7 @@ async def remove(ctx, arg):
 
     # Check for movie in list
     if arg in movie_list.keys():
-
+        # TODO: only use this if command user has proper roles on server like 'bot-wrangler'
         # TODO: add wildcard args to handle movies with spaces
         movie_list.pop(arg)
     else:
@@ -112,6 +112,34 @@ async def pickmovie(ctx):
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
 
     await ctx.send(pick_response)
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+
+    message = reaction.message
+
+    # in case we ever have the bot react to things
+    if user == bot.user:
+        return
+
+    # if the reacted message was a movie submission
+    if '!add' in message.content:
+        # isolate the arg (movie title)
+        title = message.content.replace('!add ', '')
+        if title in movie_list.keys:
+            votes = movie_list.get(title)
+            votes = votes + 1
+            movie_list.update(title=votes)
+            response = 'Thanks for Voting! {} now has {} Votes!'.format(title, votes)
+
+        else:
+            response = 'Looks like {} is not in the list anymore. Try another one!'.format(title)
+
+        await message.channel.send(response)
+
+    else:
+        return  # remove this if we do anything else with reactions
 
 
 @bot.event
@@ -153,6 +181,7 @@ async def on_message(message):
         await message.channel.send(response)
 
     await bot.process_commands(message)
+
 
 
 @bot.event
