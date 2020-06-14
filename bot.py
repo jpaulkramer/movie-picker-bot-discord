@@ -155,11 +155,15 @@ async def pickmovie(ctx):
     # Create weighted list
     
     movie_collection = get_movie_list()
+    minimum_threshold = 3
+    vote_weight = 2
 
     selection_list = []
     for movie in movie_collection:
-        for i in range(int(movie['votes'])):
-            selection_list.append(movie['title'])
+        if int(movie['votes']) >= minimum_threshold:
+            vote_score = int(movie['votes'])*vote_weight
+            for i in range(vote_score):
+                selection_list.append(movie['title'])
 
     selection = random.choice(selection_list)
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
