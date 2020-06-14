@@ -4,15 +4,38 @@ import os
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
+import psycopg2
+
+# sql functions to facilitate bot commands
+from sql_utils import addrecord, updaterecord, deleterecords, selectrecords
 
 load_dotenv()
+
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
+
+postgres_user = os.getenv('POSTGRES_USER')
+postgres_password = os.getenv('POSTGRES_PASSWORD')
+postgres_hostname = os.getenv('POSTGRES_HOSTNAME')
+postgres_database = os.getenv('DATABASE_NAME')
+movie_table = os.getenv('MOVIE_TABLE_NAME')
+
+# connect to postgres database
+try:
+    conn = psycopg2.connect(user=postgres_user,
+                            password=postgres_password,
+                            host=postgres_hostname,
+                            port="5432",
+                            database=postgres_database)
+
+except (Exception, psycopg2.Error) as error:
+    print("Error while connecting to PostgreSQL", error)
 
 bot = commands.Bot(command_prefix='!')
 
 # TODO: replace movie list & interactions with a database
 movie_list = {}
+
 
 @bot.event
 async def on_ready():
@@ -23,7 +46,6 @@ async def on_ready():
 
 @bot.command(name='add', help='Add a movie to the movie list')
 async def add(ctx, arg):
-    
     # Query formatted username
     user = str(ctx.message.author.display_name)
     if user == 'None':
@@ -31,7 +53,7 @@ async def add(ctx, arg):
     user = user.capitalize()
 
     add_response = f'Adding {arg} to the movie list! Thanks for the suggestion, {user}.'
-    
+
     # Check for movie in list
     if not arg in movie_list.keys():
         # TODO: add wildcard args to handle movies with spaces
@@ -52,10 +74,9 @@ async def list_movies(ctx):
 
     await ctx.send(list_response)
 
-    
+
 @bot.command(name='remove', help='Remove movie from movie list')
 async def remove(ctx, arg):
-    
     # Query formatted username
     user = str(ctx.message.author.display_name)
     if user == 'None':
@@ -63,21 +84,20 @@ async def remove(ctx, arg):
     user = user.capitalize()
 
     remove_response = f'Removing {arg} from the movie list! With great power comes great responsibility, {user}.'
-    
+
     # Check for movie in list
     if arg in movie_list.keys():
-        
+
         # TODO: add wildcard args to handle movies with spaces
         movie_list.pop(arg)
     else:
         remove_response = f"{arg} isn't in the list, but nice try!"
-        
+
     await ctx.send(remove_response)
 
 
 @bot.command(name='pickmovie', help='Randomly select a movie from the list')
 async def pickmovie(ctx):
-    
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
     # TODO: Need a voting systems
@@ -122,7 +142,7 @@ async def on_message(message):
     ]
 
     response = None
-    
+
     # Message rules here!
     if message.content == '99!':
         response = random.choice(brooklyn_99_quotes)
@@ -150,5 +170,19 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         await ctx.send('Command Didn\'t Work.')
 
+
 if __name__ == "__main__":
     bot.run(TOKEN)
+
+
+# TODO: need to close the postgres connection at some point? but no idea when that happenss by design...
+#  only on program end?
+"""
+finally:
+    #closing database connection.
+        if(connection):
+            cursor.close()
+            connection.close()
+            print("PostgreSQL connection is closed")
+
+"""
