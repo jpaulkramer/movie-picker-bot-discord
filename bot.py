@@ -190,7 +190,7 @@ async def on_reaction_add(reaction, user):
                 votes = movie_dict[title]['votes']
                 new_voters = "'"+movie_dict[title]['voters']+f'{user},'+"'"
                 new_votes = votes + 1
-                response = 'Thanks for Voting! {} now has {} Votes!'.format(title, new_votes)
+                response = 'Thanks for voting! {} now has {} votes!'.format(title, new_votes)
                 update_movie(title, 'votes', new_votes)
                 update_movie(title, 'voters', new_voters)
             else:
