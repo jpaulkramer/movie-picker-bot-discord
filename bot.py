@@ -167,7 +167,7 @@ async def pickmovie(ctx):
 
     selection = random.choice(selection_list)
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
-    remove_movie(selection)
+    # remove_movie(selection)
 
     await ctx.send(pick_response)
 
