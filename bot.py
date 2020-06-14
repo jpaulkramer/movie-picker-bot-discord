@@ -96,7 +96,7 @@ async def vote(ctx, *args):
             votes = movie_dict[title]['votes']
             new_voters = "'"+movie_dict[title]['voters']+f'{user_full},'+"'"
             new_votes = votes + 1
-            vote_response = f'That movie was already in our list, so we voted for it instead! {title} now has {new_votes} votes!'
+            vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
             update_movie(title, 'votes', new_votes)
             update_movie(title, 'voters', new_voters)
         else:
