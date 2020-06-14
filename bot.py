@@ -287,6 +287,9 @@ def parse_username(author_obj):
 def parse_movie_name(arg_list):
     word_list = [x.lower().capitalize() for x in arg_list]
     movie_name = ' '.join(word_list)
+
+    # Sanitize inputs, remove apostrophe 
+    movie_name = movie_name.replace("'","")
     return movie_name
 
 def vote_for_movie(movie, user):
