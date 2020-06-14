@@ -141,7 +141,7 @@ async def remove(ctx, *args):
 
     # Check for movie in list
     if movie_name in movie_list:
-        remove_response = f"I'm sorry {user}, I'm afraid I can't do that"
+        remove_movie(movie_name)
     else:
         remove_response = f"{movie_name} isn't on the list, but nice try!"
 
@@ -163,16 +163,14 @@ async def pickmovie(ctx):
 
     selection = random.choice(selection_list)
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
+    remove_movie(selection)
 
     await ctx.send(pick_response)
 
 
 @bot.event
 async def on_reaction_add(reaction, user):
-
     message = reaction.message
-    print(user)
-
     # in case we ever have the bot react to things
     if user == bot.user:
         return
@@ -246,7 +244,7 @@ async def on_message(message):
         (['treasure'], 'Maybe the real treasure was the friends we made along the way'),
         (['pivot'],'https://media.giphy.com/media/3nfqWYzKrDHEI/giphy.gif'),
         (['worm','werm'],'**WERMS**\n\n*This message has been brought to you by Whermhwood Yacht Club, LLC*\n*A subsidiary of Werms Inc*'),
-        (['baby'],'https://media.giphy.com/media/11SkMd003FMgW4/giphy.gif')
+        (['boom','baby'],'https://media.giphy.com/media/11SkMd003FMgW4/giphy.gif')
     ]
 
     for call, response_str in easter_egg_list:

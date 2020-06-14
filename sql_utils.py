@@ -130,7 +130,7 @@ def update_movie(title, field, value):
 
     return
 
-def remove_movie(condition):
+def remove_movie(title):
     """
     deletes records with specified condition.
     :param conn: postgres connection
@@ -141,7 +141,7 @@ def remove_movie(condition):
     engine = sqldb.create_engine(engine_name)
     with engine.connect() as connection:
         try:
-            delete_query = 'DELETE FROM {} where {} '.format(movie_table, condition)
+            delete_query = "DELETE FROM {} where title like '{}'".format(movie_table, title)
             connection.execute(delete_query)
 
         except Exception as error:
