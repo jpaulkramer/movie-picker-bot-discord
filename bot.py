@@ -48,7 +48,6 @@ async def on_ready():
 async def add(ctx, *args):
     # Query formatted username
     user = parse_username(ctx.message.author)
-    print(*args)
 
     try:
         movie_name = parse_movie_name(args)
@@ -63,6 +62,16 @@ async def add(ctx, *args):
     if not movie_name in movie_list.keys():
         # TODO: add wildcard args to handle movies with spaces
         movie_list[movie_name] = 1
+
+        addrecord(
+            conn=conn,
+            table=movie_table,
+            key='text',
+            title=movie_name,
+            submitter=user,
+            votes=1
+        )
+        
     else:
         add_response = f'{movie_name} is already in the list!'
 
