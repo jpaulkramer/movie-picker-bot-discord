@@ -4,15 +4,23 @@ import os
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
+import psycopg2
+
+# sql functions to facilitate bot commands
+from sql_utils import add_movie, remove_movie, update_votes, get_movie_list
 
 load_dotenv()
+
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
-bot = commands.Bot(command_prefix='!')
+postgres_user = os.getenv('POSTGRES_USER')
+postgres_password = os.getenv('POSTGRES_PASSWORD')
+postgres_hostname = os.getenv('POSTGRES_HOSTNAME')
+postgres_database = os.getenv('DATABASE_NAME')
+movie_table = os.getenv('MOVIE_TABLE_NAME')
 
-# TODO: replace movie list & interactions with a database
-movie_list = {}
+bot = commands.Bot(command_prefix='!')
 
 @bot.event
 async def on_ready():
@@ -22,22 +30,37 @@ async def on_ready():
 
 
 @bot.command(name='add', help='Add a movie to the movie list')
-async def add(ctx, arg):
-    
+async def add(ctx, *args):
     # Query formatted username
-    user = str(ctx.message.author.display_name)
-    if user == 'None':
-        user = str(ctx.message.author).split('#')[0]
-    user = user.capitalize()
+    user = parse_username(ctx.message.author)
 
-    add_response = f'Adding {arg} to the movie list! Thanks for the suggestion, {user}.'
-    
+    try:
+        movie_name = parse_movie_name(args)
+    except:
+        err_message = f"Sorry {user}, I don't understand your request"
+        await ctx.send(err_message)
+        return
+
+    movie_collection = get_movie_list()
+    movie_list = [x['title'] for x in movie_collection]
+
+    add_response = f'Adding {movie_name} to the movie list! Thanks for the suggestion, {user}.'
+
     # Check for movie in list
-    if not arg in movie_list.keys():
-        # TODO: add wildcard args to handle movies with spaces
-        movie_list[arg] = 1
+    if not movie_name in movie_list:
+        try:
+            add_movie(
+                key='text',
+                title=movie_name,
+                submitter=ctx.message.author,
+                votes=1
+            )
+        except Exception as e:
+            print('Failed to write to sql')
+            print(f'ERR {e}')
+
     else:
-        add_response = f'{arg} is already in the list!'
+        add_response = f'{movie_name} is already in the list!'
 
     await ctx.send(add_response)
 
@@ -46,52 +69,94 @@ async def add(ctx, arg):
 async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
-    # Format movie dictionary to multi line string
-    for movie, score in movie_list.items():
-        list_response += f'{movie}: {score}\n'
+    movie_collection = get_movie_list()
+
+    if len(movie_collection) == 0:
+         list_response += 'Empty!\n'
+    else:
+        for i, movie in enumerate(movie_collection):
+            list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
 
     await ctx.send(list_response)
 
-    
-@bot.command(name='remove', help='Remove movie from movie list')
-async def remove(ctx, arg):
-    
-    # Query formatted username
-    user = str(ctx.message.author.display_name)
-    if user == 'None':
-        user = str(ctx.message.author).split('#')[0]
-    user = user.capitalize()
 
-    remove_response = f'Removing {arg} from the movie list! With great power comes great responsibility, {user}.'
-    
+@bot.command(name='remove', help='Remove movie from movie list')
+async def remove(ctx, *args):
+    # Query formatted username
+    user = parse_username(ctx.message.author)
+
+    try:
+        movie_name = parse_movie_name(args)
+    except:
+        err_message = f"Sorry {user}, I don't understand your request"
+        await ctx.send(err_message)
+        return
+
+    remove_response = f'Removing {movie_name} from the movie list! Remember, with great power comes great responsibility, {user}.'
+
+    # Pull table, format into simple list of titles
+    movie_collection = get_movie_list()
+    movie_list = [x['title'] for x in movie_collection]
+
     # Check for movie in list
-    if arg in movie_list.keys():
-        
-        # TODO: add wildcard args to handle movies with spaces
-        movie_list.pop(arg)
+    if movie_name in movie_list:
+        remove_response = f"I'm sorry {user}, I'm afraid I can't do that"
     else:
-        remove_response = f"{arg} isn't in the list, but nice try!"
-        
+        remove_response = f"{movie_name} isn't in the list, but nice try!"
+
     await ctx.send(remove_response)
 
 
 @bot.command(name='pickmovie', help='Randomly select a movie from the list')
 async def pickmovie(ctx):
-    
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
-    # TODO: Need a voting systems
     # Create weighted list
+    
+    movie_collection = get_movie_list()
+
     selection_list = []
-    for movie, score in movie_list.items():
-        for i in range(int(score)):
-            selection_list.append(movie)
+    for movie in movie_collection:
+        for i in range(int(movie['votes'])):
+            selection_list.append(movie['title'])
 
     selection = random.choice(selection_list)
-
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
 
     await ctx.send(pick_response)
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+
+    message = reaction.message
+
+    # in case we ever have the bot react to things
+    if user == bot.user:
+        return
+
+    # if the reacted message was a movie submission
+    if '!add' in message.content:
+        movie_collection = get_movie_list()
+        movie_dict = {movie['title']:movie for movie in movie_collection}
+
+        # isolate the arg (movie title)
+        title_args = message.content.replace('!add ', '').split(' ')
+        title = parse_movie_name(title_args)
+
+        if title in movie_dict.keys():
+            votes = movie_dict[title]['votes']
+            new_votes = votes + 1
+            response = 'Thanks for Voting! {} now has {} Votes!'.format(title, new_votes)
+            update_votes(title, new_votes)
+
+        else:
+            response = 'Looks like {} is not in the list anymore. Try another one!'.format(title)
+
+        await message.channel.send(response)
+
+    else:
+        return  # remove this if we do anything else with reactions
 
 
 @bot.event
@@ -121,13 +186,20 @@ async def on_message(message):
         f'{author_name}. Good to see you. But if you’re here, who’s guarding Hades?'
     ]
 
+    # Call patterns & responses!
     response = None
-    
-    # Message rules here!
-    if message.content == '99!':
-        response = random.choice(brooklyn_99_quotes)
-    elif ('inquisition' or 'inquisitor' or 'inquisitive' or 'inquire' or 'inquiry') in message.content.lower():
-        response = 'No one expects the Spanish Inquisition!'
+    message_pattern = message.content.lower()
+    easter_egg_list = [
+        (['99!'], random.choice(brooklyn_99_quotes)),
+        (['difficult','hard','challenging'], 'No no no, super easy, barely an inconvenience'),
+        (['inquisition','inquisitor','inquisitive','inquiry','inquire'], 'No one expects the Spanish Inquisition!'),
+        (['treasure'], 'Maybe the real treasure was the friends we made along the way'),
+        (['pivot'],'https://media.giphy.com/media/3nfqWYzKrDHEI/giphy.gif')
+    ]
+
+    for call, response_str in easter_egg_list:
+        if any(x in message_pattern for x in call):
+            response = response_str
 
     if response:
         await message.channel.send(response)
@@ -142,7 +214,7 @@ async def on_error(event, *args, **kwargs):
         if event == 'on_message':
             f.write(f'Unhandled message: {args[0]}\n')
         else:
-            raise
+            raise ValueError('No bueno')
 
 
 @bot.event
@@ -150,5 +222,23 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         await ctx.send('Command Didn\'t Work.')
 
+
+# COMMON UTILITIES
+
+def parse_username(author_obj):
+    user = str(author_obj.display_name)
+    if user == 'None':
+        user = str(author_obj).split('#')[0]
+    user = user.capitalize()
+
+    return user
+
+def parse_movie_name(arg_list):
+    word_list = [x.lower().capitalize() for x in arg_list]
+    movie_name = ' '.join(word_list)
+    return movie_name
+
+
+# MAIN
 if __name__ == "__main__":
     bot.run(TOKEN)
