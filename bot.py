@@ -7,7 +7,7 @@ from discord.ext import commands
 import psycopg2
 
 # sql functions to facilitate bot commands
-from sql_utils import add_movie, remove_movie, update_votes, get_movie_list
+from sql_utils import add_movie, remove_movie, update_movie, get_movie_list
 
 load_dotenv()
 
@@ -35,23 +35,23 @@ async def add(ctx, *args):
     user = parse_username(ctx.message.author)
 
     try:
-        movie_name = parse_movie_name(args)
+        title = parse_movie_name(args)
     except:
         err_message = f"Sorry {user}, I don't understand your request"
         await ctx.send(err_message)
         return
 
     movie_collection = get_movie_list()
-    movie_list = [x['title'] for x in movie_collection]
+    movie_dict = {movie['title']:movie for movie in movie_collection}
 
-    add_response = f'Adding {movie_name} to the movie list! Thanks for the suggestion, {user}.'
+    add_response = f'Adding {title} to the movie list! Thanks for the suggestion, {user}.'
 
     # Check for movie in list
-    if not movie_name in movie_list:
+    if not title in movie_dict.keys():
         try:
             add_movie(
                 key='text',
-                title=movie_name,
+                title=title,
                 submitter=ctx.message.author,
                 votes=1
             )
@@ -60,10 +60,51 @@ async def add(ctx, *args):
             print(f'ERR {e}')
 
     else:
-        add_response = f'{movie_name} is already in the list!'
+        user_full = str(ctx.message.author)
+        voter_list = movie_dict[title]['voters'].split(',')
+        if not user_full in voter_list:
+            votes = movie_dict[title]['votes']
+            new_voters = "'"+movie_dict[title]['voters']+f'{user_full},'+"'"
+            new_votes = votes + 1
+            add_response = f'That movie was already in our list, so we voted for it instead! {title} now has {new_votes} votes!'
+            update_movie(title, 'votes', new_votes)
+            update_movie(title, 'voters', new_voters)
+
+        else:
+            add_response = f'{title} is already on the list!'
 
     await ctx.send(add_response)
 
+@bot.command(name='vote', help='Vote for a movie!')
+async def vote(ctx, *args):
+    user = parse_username(ctx.message.author)
+
+    try:
+        title = parse_movie_name(args)
+    except:
+        err_message = f"Sorry {user}, I don't understand your request"
+        await ctx.send(err_message)
+        return
+        
+    movie_collection = get_movie_list()
+    movie_dict = {movie['title']:movie for movie in movie_collection}
+    
+    if title in movie_dict.keys(): 
+        user_full = str(ctx.message.author)
+        voter_list = movie_dict[title]['voters'].split(',')
+        if not user_full in voter_list:
+            votes = movie_dict[title]['votes']
+            new_voters = "'"+movie_dict[title]['voters']+f'{user_full},'+"'"
+            new_votes = votes + 1
+            vote_response = f'That movie was already in our list, so we voted for it instead! {title} now has {new_votes} votes!'
+            update_movie(title, 'votes', new_votes)
+            update_movie(title, 'voters', new_voters)
+        else:
+            vote_response = f"Sorry {user}, you've already voted for {title}!"
+    else:
+        vote_response = f"Sorry {user}, {title} isn't on the list! Try to !add it instead"
+
+    await ctx.send(vote_response)
 
 @bot.command(name='list', help='Shows the current movie list')
 async def list_movies(ctx):
@@ -100,9 +141,9 @@ async def remove(ctx, *args):
 
     # Check for movie in list
     if movie_name in movie_list:
-        remove_response = f"I'm sorry {user}, I'm afraid I can't do that"
+        remove_movie(movie_name)
     else:
-        remove_response = f"{movie_name} isn't in the list, but nice try!"
+        remove_response = f"{movie_name} isn't on the list, but nice try!"
 
     await ctx.send(remove_response)
 
@@ -122,36 +163,43 @@ async def pickmovie(ctx):
 
     selection = random.choice(selection_list)
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
+    remove_movie(selection)
 
     await ctx.send(pick_response)
 
 
 @bot.event
 async def on_reaction_add(reaction, user):
-
     message = reaction.message
-
     # in case we ever have the bot react to things
     if user == bot.user:
         return
 
     # if the reacted message was a movie submission
-    if '!add' in message.content:
+    if '!add' in message.content or '!vote' in message.content:
         movie_collection = get_movie_list()
         movie_dict = {movie['title']:movie for movie in movie_collection}
 
         # isolate the arg (movie title)
-        title_args = message.content.replace('!add ', '').split(' ')
+        title_args = message.content.replace('!add ','').replace('!vote','').split(' ')
         title = parse_movie_name(title_args)
 
         if title in movie_dict.keys():
-            votes = movie_dict[title]['votes']
-            new_votes = votes + 1
-            response = 'Thanks for Voting! {} now has {} Votes!'.format(title, new_votes)
-            update_votes(title, new_votes)
+            voter_list = movie_dict[title]['voters'].split(',')
+            if not str(user) in voter_list:
+                votes = movie_dict[title]['votes']
+                new_voters = "'"+movie_dict[title]['voters']+f'{user},'+"'"
+                new_votes = votes + 1
+                response = 'Thanks for voting! {} now has {} votes!'.format(title, new_votes)
+                update_movie(title, 'votes', new_votes)
+                update_movie(title, 'voters', new_voters)
+            else:
+                response = f"Sorry {user}, you've already voted for {title}!"
+                await message.channel.send(response)
+                return
 
         else:
-            response = 'Looks like {} is not in the list anymore. Try another one!'.format(title)
+            response = 'Looks like {} is not on the list anymore. Try another one!'.format(title)
 
         await message.channel.send(response)
 
@@ -194,7 +242,9 @@ async def on_message(message):
         (['difficult','hard','challenging'], 'No no no, super easy, barely an inconvenience'),
         (['inquisition','inquisitor','inquisitive','inquiry','inquire'], 'No one expects the Spanish Inquisition!'),
         (['treasure'], 'Maybe the real treasure was the friends we made along the way'),
-        (['pivot'],'https://media.giphy.com/media/3nfqWYzKrDHEI/giphy.gif')
+        (['pivot'],'https://media.giphy.com/media/3nfqWYzKrDHEI/giphy.gif'),
+        (['worm','werm'],'**WERMS**\n\n*This message has been brought to you by Whermhwood Yacht Club, LLC*\n*A subsidiary of Werms Inc*'),
+        (['boom','baby'],'https://media.giphy.com/media/11SkMd003FMgW4/giphy.gif')
     ]
 
     for call, response_str in easter_egg_list:
