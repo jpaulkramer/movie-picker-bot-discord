@@ -101,19 +101,19 @@ async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
     movie_collection = get_movie_list()
-    movie_tup_list = []
-
-    for movie in movie_collection:
-        new_tup = (movie['title'],movie['votes'])
-        movie_tup_list.append(new_tup)
     
-    print(movie_tup_list)
-
     if len(movie_collection) == 0:
          list_response += 'Empty!\n'
     else:
-        for i, movie in enumerate(movie_collection):
-            list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
+        movie_tup_list = []
+        for movie in movie_collection:
+            new_tup = (movie,movie['votes'])
+            movie_tup_list.append(new_tup)
+        movie_tup_list.sort(key=takeSecond)
+        
+        for i, movie_tup in enumerate(movie_tup_list):
+            movie, votes = movie_tup
+            list_response += f"#{i+1} - {movie['title']} ({votes} points)\n"
 
     await ctx.send(list_response)
 
@@ -268,6 +268,9 @@ async def on_command_error(ctx, error):
 
 
 # COMMON UTILITIES
+
+def takeSecond(elem):
+    return elem[1]
 
 def parse_username(author_obj):
     user = str(author_obj.display_name)
