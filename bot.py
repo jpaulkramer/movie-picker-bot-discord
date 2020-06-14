@@ -45,21 +45,26 @@ async def on_ready():
 
 
 @bot.command(name='add', help='Add a movie to the movie list')
-async def add(ctx, arg):
+async def add(ctx, *args):
     # Query formatted username
-    user = str(ctx.message.author.display_name)
-    if user == 'None':
-        user = str(ctx.message.author).split('#')[0]
-    user = user.capitalize()
+    user = parse_username(ctx.message.author)
+    print(*args)
 
-    add_response = f'Adding {arg} to the movie list! Thanks for the suggestion, {user}.'
+    try:
+        movie_name = parse_movie_name(args)
+    except:
+        err_message = f"Sorry {user}, I don't understand your request"
+        await ctx.send(err_message)
+        return
+
+    add_response = f'Adding {movie_name} to the movie list! Thanks for the suggestion, {user}.'
 
     # Check for movie in list
-    if not arg in movie_list.keys():
+    if not movie_name in movie_list.keys():
         # TODO: add wildcard args to handle movies with spaces
-        movie_list[arg] = 1
+        movie_list[movie_name] = 1
     else:
-        add_response = f'{arg} is already in the list!'
+        add_response = f'{movie_name} is already in the list!'
 
     await ctx.send(add_response)
 
@@ -76,22 +81,25 @@ async def list_movies(ctx):
 
 
 @bot.command(name='remove', help='Remove movie from movie list')
-async def remove(ctx, arg):
+async def remove(ctx, *args):
     # Query formatted username
-    user = str(ctx.message.author.display_name)
-    if user == 'None':
-        user = str(ctx.message.author).split('#')[0]
-    user = user.capitalize()
+    user = parse_username(ctx.message.author)
 
-    remove_response = f'Removing {arg} from the movie list! With great power comes great responsibility, {user}.'
+    try:
+        movie_name = parse_movie_name(args)
+    except:
+        err_message = f"Sorry {user}, I don't understand your request"
+        await ctx.send(err_message)
+        return
+
+    remove_response = f'Removing {movie_name} from the movie list! Remember, with great power comes great responsibility, {user}.'
 
     # Check for movie in list
-    if arg in movie_list.keys():
-
+    if movie_name in movie_list.keys():
         # TODO: add wildcard args to handle movies with spaces
-        movie_list.pop(arg)
+        movie_list.pop(movie_name)
     else:
-        remove_response = f"{arg} isn't in the list, but nice try!"
+        remove_response = f"{movie_name} isn't in the list, but nice try!"
 
     await ctx.send(remove_response)
 
@@ -170,6 +178,18 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         await ctx.send('Command Didn\'t Work.')
 
+def parse_username(author_obj):
+    user = str(author_obj.display_name)
+    if user == 'None':
+        user = str(author_obj).split('#')[0]
+    user = user.capitalize()
+
+    return user
+
+def parse_movie_name(arg_list):
+    word_list = [x.capitalize() for x in arg_list]
+    movie_name = ' '.join(word_list)
+    return movie_name
 
 if __name__ == "__main__":
     bot.run(TOKEN)
