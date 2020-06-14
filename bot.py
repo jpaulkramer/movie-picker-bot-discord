@@ -29,6 +29,27 @@ async def on_ready():
         f'{bot.user.name} is connected to Discord!'
     )
 
+# TODO: Add cleanup function
+
+@bot.command(name='history', help='Get user voting history')
+async def get_history(ctx):
+    # TODO: Return user info 
+    # what movies you've voted for
+    # number of votes cast
+    # number of movies suggested
+
+    pass
+
+@bot.command(name='info', help='Get movie info')
+async def get_info(ctx):
+    # TODO: Return movie info 
+    # movie name
+    # number of votes
+    # who added it
+    # who voted for it
+    # when it was voted for last
+
+    pass
 
 @bot.command(name='add', help='Add a movie to the movie list')
 async def add(ctx, *args):
