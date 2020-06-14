@@ -112,7 +112,7 @@ async def vote(ctx, *args):
         voter_list = movie_dict[title]['voters'].split(',')
         if not user_full in voter_list:
             title, new_votes = vote_for_movie(movie_dict[title], user_full)
-            vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
+            vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
         else:
             vote_response = f"Sorry {user}, you've already voted for {title}!"
     else:
@@ -214,7 +214,7 @@ async def on_reaction_add(reaction, user):
             voter_list = movie_dict[title]['voters'].split(',')
             if not user_full in voter_list:
                 title, new_votes = vote_for_movie(movie_dict[title], user_full)
-                vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
+                vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
             else:
                 vote_response = f"Sorry {user}, you've already voted for {title}!"
         else:
