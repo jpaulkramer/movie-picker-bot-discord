@@ -7,7 +7,7 @@ from discord.ext import commands
 import psycopg2
 
 # sql functions to facilitate bot commands
-from sql_utils import addrecord, updaterecord, deleterecords, selectrecords
+from sql_utils import add_movie, remove_movie, update_votes, get_movie_list
 
 load_dotenv()
 
@@ -41,7 +41,7 @@ async def add(ctx, *args):
         await ctx.send(err_message)
         return
 
-    movie_collection = selectrecords()
+    movie_collection = get_movie_list()
     movie_list = [x['title'] for x in movie_collection]
 
     add_response = f'Adding {movie_name} to the movie list! Thanks for the suggestion, {user}.'
@@ -49,7 +49,7 @@ async def add(ctx, *args):
     # Check for movie in list
     if not movie_name in movie_list:
         try:
-            addrecord(
+            add_movie(
                 key='text',
                 title=movie_name,
                 submitter=ctx.message.author,
@@ -69,7 +69,7 @@ async def add(ctx, *args):
 async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
-    movie_collection = selectrecords()
+    movie_collection = get_movie_list()
     for i, movie in enumerate(movie_collection):
         list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
 
@@ -90,7 +90,8 @@ async def remove(ctx, *args):
 
     remove_response = f'Removing {movie_name} from the movie list! Remember, with great power comes great responsibility, {user}.'
 
-    movie_collection = selectrecords()
+    # Pull table, format into simple list of titles
+    movie_collection = get_movie_list()
     movie_list = [x['title'] for x in movie_collection]
 
     # Check for movie in list
@@ -107,14 +108,15 @@ async def pickmovie(ctx):
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
     # Create weighted list
-    movie_list = {}
+    
+    movie_collection = get_movie_list()
+
     selection_list = []
-    for movie, score in movie_list.items():
-        for i in range(int(score)):
-            selection_list.append(movie)
+    for movie in movie_collection:
+        for i in range(int(movie['votes'])):
+            selection_list.append(movie['title'])
 
     selection = random.choice(selection_list)
-
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
 
     await ctx.send(pick_response)
@@ -131,20 +133,18 @@ async def on_reaction_add(reaction, user):
 
     # if the reacted message was a movie submission
     if '!add' in message.content:
-        
-        movie_collection = selectrecords()
-        movie_list = [x['title'] for x in movie_collection]
+        movie_collection = get_movie_list()
         movie_dict = {movie['title']:movie for movie in movie_collection}
 
         # isolate the arg (movie title)
         title_args = message.content.replace('!add ', '').split(' ')
         title = parse_movie_name(title_args)
 
-        if title in movie_list:
-            votes = movie_dict['title']['votes']
-            votes = votes + 1
-            movie_list.update(title=votes)
-            response = 'Thanks for Voting! {} now has {} Votes!'.format(title, votes)
+        if title in movie_dict.keys():
+            votes = movie_dict[title]['votes']
+            new_votes = votes + 1
+            response = 'Thanks for Voting! {} now has {} Votes!'.format(title, new_votes)
+            update_votes(title, new_votes)
 
         else:
             response = 'Looks like {} is not in the list anymore. Try another one!'.format(title)
@@ -196,7 +196,6 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-
 @bot.event
 async def on_error(event, *args, **kwargs):
     print('ERR')
@@ -204,13 +203,16 @@ async def on_error(event, *args, **kwargs):
         if event == 'on_message':
             f.write(f'Unhandled message: {args[0]}\n')
         else:
-            raise
+            raise ValueError('No bueno')
 
 
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         await ctx.send('Command Didn\'t Work.')
+
+
+# COMMON UTILITIES
 
 def parse_username(author_obj):
     user = str(author_obj.display_name)
@@ -225,18 +227,7 @@ def parse_movie_name(arg_list):
     movie_name = ' '.join(word_list)
     return movie_name
 
+
+# MAIN
 if __name__ == "__main__":
     bot.run(TOKEN)
-
-
-# TODO: need to close the postgres connection at some point? but no idea when that happenss by design...
-#  only on program end?
-"""
-finally:
-    #closing database connection.
-        if(connection):
-            cursor.close()
-            connection.close()
-            print("PostgreSQL connection is closed")
-
-"""

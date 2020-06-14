@@ -19,7 +19,7 @@ engine_name = engine_pattern.format(server,
                                     host, 
                                     database)
 
-def addrecord(key, title, submitter, votes=1):
+def add_movie(key, title, submitter, votes=1):
     """
     adds record to specified table with user-specified key.
     :param conn:
@@ -47,7 +47,7 @@ def addrecord(key, title, submitter, votes=1):
     return
 
 
-def selectrecords(col=['*']):
+def get_movie_list(col=['*']):
     """
     selects records from the postgres connection and returns as an array
     :param conn: postgres connection
@@ -78,7 +78,7 @@ def selectrecords(col=['*']):
     return movie_collection
 
 
-def updaterecord(conn, table, field, condition, value):
+def updaterecord(table, field, condition, value):
     """
     updates records with specified conditions.
     :param conn: postgres connection
@@ -88,17 +88,50 @@ def updaterecord(conn, table, field, condition, value):
     :param value: value to update
     :return: none
     """
-    try:
-        cursor = conn.cursor()
-        update_query = 'UPDATE {} SET {} = {} where {} '.format(table, field, value, condition)
-        cursor.execute(update_query)
+    
+    engine = sqldb.create_engine(engine_name)
+    with engine.connect() as connection:
+        try:
+            update_query = 'UPDATE {} SET {} = {} where {}'.format(table, field, value, condition)
+            connection.execute(update_query)
 
-    except Exception as error:
-        print("Error while updating records", error)
+        except Exception as error:
+            print("Error while updating records", error)
+
+        finally:
+            connection.close()
+            engine.dispose()
+
+    return
+    
+def update_votes(title, value):
+    """
+    updates records with specified conditions.
+    :param conn: postgres connection
+    :param table: table to update
+    :param field: field to update
+    :param condition: (string) conditions, probably keyfield = key
+    :param value: value to update
+    :return: none
+    """
+    
+    engine = sqldb.create_engine(engine_name)
+    with engine.connect() as connection:
+        try:
+            update_query = f"UPDATE {movie_table} SET votes = {value} where title like '{title}'"
+            connection.execute(update_query)
+
+        except Exception as error:
+            print("Error while updating records", error)
+
+        finally:
+            connection.close()
+            engine.dispose()
+
     return
 
 
-def deleterecords(conn, table, condition):
+def remove_movie(condition):
     """
     deletes records with specified condition.
     :param conn: postgres connection
@@ -106,11 +139,17 @@ def deleterecords(conn, table, condition):
     :param condition: (string) conditions "where"
     :return: none
     """
-    try:
-        cursor = conn.cursor()
-        delete_query = 'DELETE FROM {} where {} '.format(table, condition)
-        cursor.execute(delete_query)
+    engine = sqldb.create_engine(engine_name)
+    with engine.connect() as connection:
+        try:
+            delete_query = 'DELETE FROM {} where {} '.format(movie_table, condition)
+            connection.execute(delete_query)
 
-    except Exception as error:
-        print("Error while updating records", error)
+        except Exception as error:
+            print("Error while updating records", error)
+            
+        finally:
+            connection.close()
+            engine.dispose()
+
     return
