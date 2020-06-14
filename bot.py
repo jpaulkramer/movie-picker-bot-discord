@@ -193,7 +193,8 @@ async def on_message(message):
         (['99!'], random.choice(brooklyn_99_quotes)),
         (['difficult','hard','challenging'], 'No no no, super easy, barely an inconvenience'),
         (['inquisition','inquisitor','inquisitive','inquiry','inquire'], 'No one expects the Spanish Inquisition!'),
-        (['treasure'], 'Maybe the real treasure was the friends we made along the way')
+        (['treasure'], 'Maybe the real treasure was the friends we made along the way'),
+        (['pivot'],'https://media.giphy.com/media/3nfqWYzKrDHEI/giphy.gif')
     ]
 
     for call, response_str in easter_egg_list:
