@@ -112,7 +112,7 @@ async def list_movies(ctx):
         for movie in movie_collection:
             new_tup = (movie,movie['votes'])
             movie_tup_list.append(new_tup)
-        movie_tup_list.sort(key=takeSecond)
+        movie_tup_list.sort(key=takeSecond, reverse=True)
         
         for i, movie_tup in enumerate(movie_tup_list):
             movie, votes = movie_tup
@@ -295,7 +295,7 @@ def vote_for_movie(movie, user):
     new_voters = "'"+movie['voters']+f'{user},'+"'"
     new_votes = votes + 1
     title = movie['title']
-    
+
     update_movie(title, 'votes', new_votes)
     update_movie(title, 'voters', new_voters)
     update_movie(title, 'timestamp', timestamp)
