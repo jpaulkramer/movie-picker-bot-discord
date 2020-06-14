@@ -14,8 +14,14 @@ def addrecord(conn, table, key, title, submitter, votes=1):
     """
     try:
         cursor = conn.cursor()
+
         ins_query = 'INSERT INTO {} (ID, Title, Votes, Submitter) VALUES ({},{},{},{})'.format(table, key, title, votes,
                                                                                                submitter)
+        
+        # Anton's edits: having issues with the query, messing with the format
+        # ins_query = "INSERT INTO {} (id, title, votes, submitter) VALUES ('{}','{}',{},'{}')".format(table, key, title, votes,
+        #                                                                                        submitter)
+
         cursor.execute(ins_query)
 
     except (Exception, psycopg2.error) as error:
