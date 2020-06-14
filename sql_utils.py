@@ -34,8 +34,8 @@ def add_movie(key, title, submitter, votes=1):
     engine = sqldb.create_engine(engine_name)
     with engine.connect() as connection:
         try:
-            raw_query = "INSERT INTO {} (id, title, votes, submitter) VALUES ('{}','{}',{},'{}');"
-            ins_query = raw_query.format(movie_table, key, title, votes, submitter)
+            raw_query = "INSERT INTO {} (id, title, votes, submitter, voters) VALUES ('{}','{}',{},'{}','{}');"
+            ins_query = raw_query.format(movie_table, key, title, votes, submitter, f'{submitter},')
             connection.execute(ins_query)
 
         except Exception as error:
@@ -104,7 +104,7 @@ def updaterecord(table, field, condition, value):
 
     return
     
-def update_votes(title, value):
+def update_movie(title, field, value):
     """
     updates records with specified conditions.
     :param conn: postgres connection
@@ -118,7 +118,7 @@ def update_votes(title, value):
     engine = sqldb.create_engine(engine_name)
     with engine.connect() as connection:
         try:
-            update_query = f"UPDATE {movie_table} SET votes = {value} where title like '{title}'"
+            update_query = f"UPDATE {movie_table} SET {field} = {value} where title like '{title}'"
             connection.execute(update_query)
 
         except Exception as error:
@@ -129,7 +129,6 @@ def update_votes(title, value):
             engine.dispose()
 
     return
-
 
 def remove_movie(condition):
     """
