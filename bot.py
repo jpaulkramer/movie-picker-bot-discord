@@ -64,7 +64,9 @@ async def add(ctx, *args):
         user_full = str(ctx.message.author)
         voter_list = movie_dict[title]['voters'].split(',')
         if not user_full in voter_list:
-            add_response = vote_for_movie(movie_dict[title], user_full)
+            title, new_votes = vote_for_movie(movie_dict[title], user_full)
+            add_response = f'That movie was already on the list, so we voted for it instead! {title} now has {new_votes} votes!'
+
         else:
             add_response = f'{title} is already on the list!'
 
@@ -88,7 +90,8 @@ async def vote(ctx, *args):
         user_full = str(ctx.message.author)
         voter_list = movie_dict[title]['voters'].split(',')
         if not user_full in voter_list:
-            vote_response = vote_for_movie(movie_dict[title], user_full)
+            title, new_votes = vote_for_movie(movie_dict[title], user_full)
+            vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
         else:
             vote_response = f"Sorry {user}, you've already voted for {title}!"
     else:
@@ -189,7 +192,8 @@ async def on_reaction_add(reaction, user):
             user_full = str(user)
             voter_list = movie_dict[title]['voters'].split(',')
             if not user_full in voter_list:
-                vote_response = vote_for_movie(movie_dict[title], user_full)
+                title, new_votes = vote_for_movie(movie_dict[title], user_full)
+                vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
             else:
                 vote_response = f"Sorry {user}, you've already voted for {title}!"
         else:
@@ -291,13 +295,12 @@ def vote_for_movie(movie, user):
     new_voters = "'"+movie['voters']+f'{user},'+"'"
     new_votes = votes + 1
     title = movie['title']
-    response = f'That movie was already on the list, so we voted for it instead! {title} now has {new_votes} votes!'
-
+    
     update_movie(title, 'votes', new_votes)
     update_movie(title, 'voters', new_voters)
     update_movie(title, 'timestamp', timestamp)
 
-    return response
+    return title, new_votes
 
 # MAIN
 if __name__ == "__main__":
