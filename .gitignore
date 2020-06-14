@@ -2,3 +2,4 @@ err.log
 .env
 *.idea*
 venv
+__pycache__/*
