@@ -68,7 +68,7 @@ async def add(ctx, *args):
                 table=movie_table,
                 key='text',
                 title=movie_name,
-                submitter=user,
+                submitter=ctx.message.author,
                 votes=1
             )
         except Exception as e:
