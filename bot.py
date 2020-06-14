@@ -22,9 +22,6 @@ movie_table = os.getenv('MOVIE_TABLE_NAME')
 
 bot = commands.Bot(command_prefix='!')
 
-# TODO: replace movie list & interactions with a database
-movie_list = {}
-
 @bot.event
 async def on_ready():
     print(
@@ -44,11 +41,13 @@ async def add(ctx, *args):
         await ctx.send(err_message)
         return
 
+    movie_collection = selectrecords()
+    movie_list = [x['title'] for x in movie_collection]
+
     add_response = f'Adding {movie_name} to the movie list! Thanks for the suggestion, {user}.'
 
     # Check for movie in list
-    if not movie_name in movie_list.keys():
-        movie_list[movie_name] = 1
+    if not movie_name in movie_list:
         try:
             addrecord(
                 key='text',
@@ -70,9 +69,9 @@ async def add(ctx, *args):
 async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
-    # Format movie dictionary to multi line string
-    for movie, score in movie_list.items():
-        list_response += f'{movie}: {score}\n'
+    movie_collection = selectrecords()
+    for i, movie in enumerate(movie_collection):
+        list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
 
     await ctx.send(list_response)
 
@@ -91,10 +90,12 @@ async def remove(ctx, *args):
 
     remove_response = f'Removing {movie_name} from the movie list! Remember, with great power comes great responsibility, {user}.'
 
+    movie_collection = selectrecords()
+    movie_list = [x['title'] for x in movie_collection]
+
     # Check for movie in list
-    if movie_name in movie_list.keys():
-        # TODO: only use this if command user has proper roles on server like 'bot-wrangler'
-        movie_list.pop(movie_name)
+    if movie_name in movie_list:
+        remove_response = f"I'm sorry {user}, I'm afraid I can't do that"
     else:
         remove_response = f"{movie_name} isn't in the list, but nice try!"
 
@@ -105,8 +106,8 @@ async def remove(ctx, *args):
 async def pickmovie(ctx):
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
-    # TODO: Need a voting systems
     # Create weighted list
+    movie_list = {}
     selection_list = []
     for movie, score in movie_list.items():
         for i in range(int(score)):
@@ -130,10 +131,17 @@ async def on_reaction_add(reaction, user):
 
     # if the reacted message was a movie submission
     if '!add' in message.content:
+        
+        movie_collection = selectrecords()
+        movie_list = [x['title'] for x in movie_collection]
+        movie_dict = {movie['title']:movie for movie in movie_collection}
+
         # isolate the arg (movie title)
-        title = message.content.replace('!add ', '')
-        if title in movie_list.keys():
-            votes = movie_list.get(title)
+        title_args = message.content.replace('!add ', '').split(' ')
+        title = parse_movie_name(title_args)
+
+        if title in movie_list:
+            votes = movie_dict['title']['votes']
             votes = votes + 1
             movie_list.update(title=votes)
             response = 'Thanks for Voting! {} now has {} Votes!'.format(title, votes)
@@ -213,7 +221,7 @@ def parse_username(author_obj):
     return user
 
 def parse_movie_name(arg_list):
-    word_list = [x.capitalize() for x in arg_list]
+    word_list = [x.lower().capitalize() for x in arg_list]
     movie_name = ' '.join(word_list)
     return movie_name
 

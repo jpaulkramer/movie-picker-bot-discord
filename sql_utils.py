@@ -31,13 +31,10 @@ def addrecord(key, title, submitter, votes=1):
     :return:
     """
 
-    # to avoid case conflicts, set everything to lower
-    title = title.lower()
-
     engine = sqldb.create_engine(engine_name)
     with engine.connect() as connection:
         try:
-            raw_query = "INSERT INTO {} (ID, Title, Votes, Submitter) VALUES ('{}','{}',{},'{}');"
+            raw_query = "INSERT INTO {} (id, title, votes, submitter) VALUES ('{}','{}',{},'{}');"
             ins_query = raw_query.format(movie_table, key, title, votes, submitter)
             connection.execute(ins_query)
 
@@ -50,7 +47,7 @@ def addrecord(key, title, submitter, votes=1):
     return
 
 
-def selectrecords(conn, table, where=''):
+def selectrecords(col=['*']):
     """
     selects records from the postgres connection and returns as an array
     :param conn: postgres connection
@@ -58,14 +55,27 @@ def selectrecords(conn, table, where=''):
     :param where: free-form where statement string tacked on end of select ex. select * from table (where x = y)
     :return: array of select statement results
     """
-    try:
-        cursor = conn.cursor()
-        sel_query = 'SELECT * FROM {} {})'.format(table, where)
-        cursor.execute(sel_query)
-        data = cursor.fetchall()
-    except Exception as error:
-        print("Error while selecting records", error)
-    return data
+
+    if type(col) == list:
+        col = ','.join(col)
+    elif not type(col) == str:
+        return 
+
+    engine = sqldb.create_engine(engine_name)
+    with engine.connect() as connection:
+        try:
+            sel_query = f'select {col} from {movie_table}'
+            resultproxy = connection.execute(sel_query)
+            movie_collection = [{column: value for column, value in rowproxy.items()} for rowproxy in resultproxy]
+
+        except Exception as error:
+            print("Error while selecting records", error)
+            
+        finally: 
+            connection.close()
+            engine.dispose()
+
+    return movie_collection
 
 
 def updaterecord(conn, table, field, condition, value):
