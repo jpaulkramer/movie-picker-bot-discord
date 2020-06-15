@@ -206,7 +206,7 @@ async def on_reaction_add(reaction, user):
         movie_dict = {movie['title']:movie for movie in movie_collection}
 
         # isolate the arg (movie title)
-        title_args = message.content.replace('!add ','').replace('!vote','').split(' ')
+        title_args = message.content.replace('!add ','').replace('!vote ','').split(' ')
         title = parse_movie_name(title_args)
 
         if title in movie_dict.keys():
