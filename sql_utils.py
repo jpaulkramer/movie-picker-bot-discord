@@ -1,4 +1,5 @@
 import psycopg2
+from datetime import datetime
 import sqlalchemy as sqldb
 from dotenv import load_dotenv
 import os
@@ -34,8 +35,9 @@ def add_movie(key, title, submitter, votes=1):
     engine = sqldb.create_engine(engine_name)
     with engine.connect() as connection:
         try:
-            raw_query = "INSERT INTO {} (id, title, votes, submitter, voters) VALUES ('{}','{}',{},'{}','{}');"
-            ins_query = raw_query.format(movie_table, key, title, votes, submitter, f'{submitter},')
+            timestamp = datetime.now().replace(microsecond=0).isoformat().replace(':','-')
+            raw_query = "INSERT INTO {} (id, title, votes, submitter, voters, timestamp) VALUES ('{}','{}',{},'{}','{}','{}');"
+            ins_query = raw_query.format(movie_table, key, title, votes, submitter, f'{submitter},',timestamp)
             connection.execute(ins_query)
 
         except Exception as error:

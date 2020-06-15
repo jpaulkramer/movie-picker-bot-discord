@@ -1,6 +1,7 @@
 # bot.py
 
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
@@ -28,6 +29,27 @@ async def on_ready():
         f'{bot.user.name} is connected to Discord!'
     )
 
+# TODO: Add cleanup function
+
+@bot.command(name='history', help='Get user voting history')
+async def get_history(ctx):
+    # TODO: Return user info 
+    # what movies you've voted for
+    # number of votes cast
+    # number of movies suggested
+
+    pass
+
+@bot.command(name='info', help='Get movie info')
+async def get_info(ctx):
+    # TODO: Return movie info 
+    # movie name
+    # number of votes
+    # who added it
+    # who voted for it
+    # when it was voted for last
+
+    pass
 
 @bot.command(name='add', help='Add a movie to the movie list')
 async def add(ctx, *args):
@@ -63,12 +85,8 @@ async def add(ctx, *args):
         user_full = str(ctx.message.author)
         voter_list = movie_dict[title]['voters'].split(',')
         if not user_full in voter_list:
-            votes = movie_dict[title]['votes']
-            new_voters = "'"+movie_dict[title]['voters']+f'{user_full},'+"'"
-            new_votes = votes + 1
-            add_response = f'That movie was already in our list, so we voted for it instead! {title} now has {new_votes} votes!'
-            update_movie(title, 'votes', new_votes)
-            update_movie(title, 'voters', new_voters)
+            title, new_votes = vote_for_movie(movie_dict[title], user_full)
+            add_response = f'That movie was already on the list, so we voted for it instead! {title} now has {new_votes} votes!'
 
         else:
             add_response = f'{title} is already on the list!'
@@ -93,12 +111,8 @@ async def vote(ctx, *args):
         user_full = str(ctx.message.author)
         voter_list = movie_dict[title]['voters'].split(',')
         if not user_full in voter_list:
-            votes = movie_dict[title]['votes']
-            new_voters = "'"+movie_dict[title]['voters']+f'{user_full},'+"'"
-            new_votes = votes + 1
-            vote_response = f'That movie was already in our list, so we voted for it instead! {title} now has {new_votes} votes!'
-            update_movie(title, 'votes', new_votes)
-            update_movie(title, 'voters', new_voters)
+            title, new_votes = vote_for_movie(movie_dict[title], user_full)
+            vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
         else:
             vote_response = f"Sorry {user}, you've already voted for {title}!"
     else:
@@ -111,12 +125,19 @@ async def list_movies(ctx):
     list_response = 'Current movie list...\n'
 
     movie_collection = get_movie_list()
-
+    
     if len(movie_collection) == 0:
-         list_response += 'Empty!\n'
+        list_response += 'Empty!\n'
     else:
-        for i, movie in enumerate(movie_collection):
-            list_response += f"#{i+1} - {movie['title']} ({movie['votes']} points)\n"
+        movie_tup_list = []
+        for movie in movie_collection:
+            new_tup = (movie,movie['votes'])
+            movie_tup_list.append(new_tup)
+        movie_tup_list.sort(key=takeSecond, reverse=True)
+        
+        for i, movie_tup in enumerate(movie_tup_list):
+            movie, votes = movie_tup
+            list_response += f"#{i+1} - {movie['title']} ({votes} points)\n"
 
     await ctx.send(list_response)
 
@@ -133,7 +154,7 @@ async def remove(ctx, *args):
         await ctx.send(err_message)
         return
 
-    remove_response = f'Removing {movie_name} from the movie list! Remember, with great power comes great responsibility, {user}.'
+    remove_response = f'Removing {movie_name} from the movie list! Remember, {user}, with great power comes great responsibility.'
 
     # Pull table, format into simple list of titles
     movie_collection = get_movie_list()
@@ -155,15 +176,19 @@ async def pickmovie(ctx):
     # Create weighted list
     
     movie_collection = get_movie_list()
+    minimum_threshold = 3
+    vote_weight = 2
 
     selection_list = []
     for movie in movie_collection:
-        for i in range(int(movie['votes'])):
-            selection_list.append(movie['title'])
+        if int(movie['votes']) >= minimum_threshold:
+            vote_score = int(movie['votes'])*vote_weight
+            for i in range(vote_score):
+                selection_list.append(movie['title'])
 
     selection = random.choice(selection_list)
     pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
-    remove_movie(selection)
+    # remove_movie(selection)
 
     await ctx.send(pick_response)
 
@@ -185,23 +210,17 @@ async def on_reaction_add(reaction, user):
         title = parse_movie_name(title_args)
 
         if title in movie_dict.keys():
+            user_full = str(user)
             voter_list = movie_dict[title]['voters'].split(',')
-            if not str(user) in voter_list:
-                votes = movie_dict[title]['votes']
-                new_voters = "'"+movie_dict[title]['voters']+f'{user},'+"'"
-                new_votes = votes + 1
-                response = 'Thanks for voting! {} now has {} votes!'.format(title, new_votes)
-                update_movie(title, 'votes', new_votes)
-                update_movie(title, 'voters', new_voters)
+            if not user_full in voter_list:
+                title, new_votes = vote_for_movie(movie_dict[title], user_full)
+                vote_response = f'Thanks for voting! The {title} now has {new_votes} votes!'
             else:
-                response = f"Sorry {user}, you've already voted for {title}!"
-                await message.channel.send(response)
-                return
-
+                vote_response = f"Sorry {user}, you've already voted for {title}!"
         else:
-            response = 'Looks like {} is not on the list anymore. Try another one!'.format(title)
+            vote_response = 'Looks like {} is not on the list anymore. Try another one!'.format(title)
 
-        await message.channel.send(response)
+        await message.channel.send(vote_response)
 
     else:
         return  # remove this if we do anything else with reactions
@@ -275,6 +294,9 @@ async def on_command_error(ctx, error):
 
 # COMMON UTILITIES
 
+def takeSecond(elem):
+    return elem[1]
+
 def parse_username(author_obj):
     user = str(author_obj.display_name)
     if user == 'None':
@@ -286,8 +308,24 @@ def parse_username(author_obj):
 def parse_movie_name(arg_list):
     word_list = [x.lower().capitalize() for x in arg_list]
     movie_name = ' '.join(word_list)
+
+    # Sanitize inputs, remove apostrophe 
+    movie_name = movie_name.replace("'","")
     return movie_name
 
+def vote_for_movie(movie, user):
+    timestamp = datetime.now().replace(microsecond=0).isoformat().replace(':','-')
+    votes = movie['votes']
+    new_voters = "'"+movie['voters']+f'{user},'+"'"
+    timestamp = "'"+timestamp+"'"
+    new_votes = votes + 1
+    title = movie['title']
+
+    update_movie(title, 'votes', new_votes)
+    update_movie(title, 'voters', new_voters)
+    update_movie(title, 'timestamp', timestamp)
+
+    return title, new_votes
 
 # MAIN
 if __name__ == "__main__":
