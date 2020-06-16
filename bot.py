@@ -143,12 +143,19 @@ async def vote(ctx, *args):
     return
 
 @bot.command(name='list', help='Shows the current movie list')
-async def list_movies(ctx):
+async def list_movies(ctx, arg=None):
     logger.debug('Parsing command - LIST')
     try:
         list_response = 'Current movie list...\n'
         logger.debug('Checking database')
         movie_collection = get_movie_list()
+
+        if arg == 'top':
+            movie_limit = 10
+        elif arg == 'full':
+            movie_limit = len(movie_collection)
+        else:
+            movie_limit = 50
         
         if len(movie_collection) == 0:
             logger.debug('Empty list')
@@ -161,7 +168,7 @@ async def list_movies(ctx):
                 movie_tup_list.append(new_tup)
             movie_tup_list.sort(key=takeSecond, reverse=True)
             
-            for i, movie_tup in enumerate(movie_tup_list):
+            for i, movie_tup in enumerate(movie_tup_list[:movie_limit]):
                 movie, votes = movie_tup
                 new_line = f"#{i+1} - {movie['title']} ({votes} points)\n"
                 line_limit = 2000
