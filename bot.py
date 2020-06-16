@@ -1,33 +1,48 @@
-# bot.py
-
 import os
 from datetime import datetime
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
 import psycopg2
+import logging
 
-# sql functions to facilitate bot commands
 from sql_utils import add_movie, remove_movie, update_movie, get_movie_list
 
+# Load ENV
 load_dotenv()
-
-TOKEN = os.getenv('DISCORD_TOKEN')
+TOKEN = os.getenv('DISCORD_TOKEN_DEV')
 GUILD = os.getenv('DISCORD_GUILD')
 
-postgres_user = os.getenv('POSTGRES_USER')
-postgres_password = os.getenv('POSTGRES_PASSWORD')
-postgres_hostname = os.getenv('POSTGRES_HOSTNAME')
-postgres_database = os.getenv('DATABASE_NAME')
-movie_table = os.getenv('MOVIE_TABLE_NAME')
+# Logging Handler
+log_root = r'logs'
+log_format = logging.Formatter("%(asctime)s - %(name)s - %(funcName)s | %(levelname)s - %(lineno)s - %(message)s")
 
+if not os.path.exists(log_root):
+    os.makedirs(log_root)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+date = datetime.today().strftime('%Y-%m-%d')
+log_file = os.path.join(log_root, f'{date}_movie-bot.log')
+fh = logging.FileHandler(log_file, mode='a')
+fh.setLevel(logging.DEBUG)
+fh.setFormatter(log_format)
+
+sh = logging.StreamHandler()
+sh.setLevel(logging.DEBUG)
+sh.setFormatter(log_format)
+
+logger.addHandler(fh)
+logger.addHandler(sh)
+
+logger.info('Bot initialized')
+
+# START BOT!
 bot = commands.Bot(command_prefix='!')
 
 @bot.event
 async def on_ready():
-    print(
-        f'{bot.user.name} is connected to Discord!'
-    )
+    logger.debug(f'{bot.user.name} is connected to Discord!')
 
 # TODO: Add cleanup function
 
@@ -53,15 +68,11 @@ async def get_info(ctx):
 
 @bot.command(name='add', help='Add a movie to the movie list')
 async def add(ctx, *args):
+    logger.debug('Parsing command - ADD')
+
     # Query formatted username
     user = parse_username(ctx.message.author)
-
-    try:
-        title = parse_movie_name(args)
-    except:
-        err_message = f"Sorry {user}, I don't understand your request"
-        await ctx.send(err_message)
-        return
+    title = parse_movie_name(args)
 
     movie_collection = get_movie_list()
     movie_dict = {movie['title']:movie for movie in movie_collection}
@@ -78,8 +89,8 @@ async def add(ctx, *args):
                 votes=1
             )
         except Exception as e:
-            print('Failed to write to sql')
-            print(f'ERR {e}')
+            logger.debug('Failed to write to sql')
+            logger.debug(f'ERR {e}')
 
     else:
         user_full = str(ctx.message.author)
@@ -95,14 +106,10 @@ async def add(ctx, *args):
 
 @bot.command(name='vote', help='Vote for a movie!')
 async def vote(ctx, *args):
-    user = parse_username(ctx.message.author)
+    logger.debug('Parsing command - VOTE')
 
-    try:
-        title = parse_movie_name(args)
-    except:
-        err_message = f"Sorry {user}, I don't understand your request"
-        await ctx.send(err_message)
-        return
+    user = parse_username(ctx.message.author)
+    title = parse_movie_name(args)
         
     movie_collection = get_movie_list()
     movie_dict = {movie['title']:movie for movie in movie_collection}
@@ -122,8 +129,9 @@ async def vote(ctx, *args):
 
 @bot.command(name='list', help='Shows the current movie list')
 async def list_movies(ctx):
+    logger.debug('Parsing command - LIST')
+    
     list_response = 'Current movie list...\n'
-
     movie_collection = get_movie_list()
     
     if len(movie_collection) == 0:
@@ -144,15 +152,11 @@ async def list_movies(ctx):
 
 @bot.command(name='remove', help='Remove movie from movie list')
 async def remove(ctx, *args):
+    logger.debug('Parsing command - REMOVE')
+
     # Query formatted username
     user = parse_username(ctx.message.author)
-
-    try:
-        movie_name = parse_movie_name(args)
-    except:
-        err_message = f"Sorry {user}, I don't understand your request"
-        await ctx.send(err_message)
-        return
+    movie_name = parse_movie_name(args)
 
     remove_response = f'Removing {movie_name} from the movie list! Remember, {user}, with great power comes great responsibility.'
 
@@ -171,6 +175,8 @@ async def remove(ctx, *args):
 
 @bot.command(name='pickmovie', help='Randomly select a movie from the list')
 async def pickmovie(ctx):
+    logger.debug('Parsing command - PICK')
+
     pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
     # Create weighted list
@@ -195,6 +201,8 @@ async def pickmovie(ctx):
 
 @bot.event
 async def on_reaction_add(reaction, user):
+    logger.debug('Parsing command - REACT')
+
     message = reaction.message
     # in case we ever have the bot react to things
     if user == bot.user:
@@ -216,6 +224,7 @@ async def on_reaction_add(reaction, user):
                 title, new_votes = vote_for_movie(movie_dict[title], user_full)
                 vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
             else:
+                user = parse_username(user)
                 vote_response = f"Sorry {user}, you've already voted for {title}!"
         else:
             vote_response = 'Looks like {} is not on the list anymore. Try another one!'.format(title)
@@ -266,25 +275,25 @@ async def on_message(message):
         (['boom','baby'],'https://media.giphy.com/media/11SkMd003FMgW4/giphy.gif')
     ]
 
+    # Check for easter eggs
     for call, response_str in easter_egg_list:
         if any(x in message_pattern for x in call):
             response = response_str
 
     if response:
+        logger.debug('Easter egg!')
         await message.channel.send(response)
 
     await bot.process_commands(message)
 
+# ERR HANDLING
 
 @bot.event
 async def on_error(event, *args, **kwargs):
-    print('ERR')
-    with open('err.log', 'a') as f:
-        if event == 'on_message':
-            f.write(f'Unhandled message: {args[0]}\n')
-        else:
-            raise ValueError('No bueno')
-
+    try:
+        logger.error(f'{event} - {args[0]}\n')
+    except Exception as e:
+        logger.error(f'unknown error - {e}')
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -298,7 +307,11 @@ def takeSecond(elem):
     return elem[1]
 
 def parse_username(author_obj):
-    user = str(author_obj.display_name)
+    try:
+        user = str(author_obj.display_name)
+    except:
+        user = 'None'
+
     if user == 'None':
         user = str(author_obj).split('#')[0]
     user = user.capitalize()
