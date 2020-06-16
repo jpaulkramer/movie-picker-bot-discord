@@ -1,14 +1,14 @@
 import os
+import sys
 from datetime import datetime
 from dotenv import load_dotenv
 import random
 from discord.ext import commands
 import psycopg2
+import traceback
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-from sql_utils import add_movie, remove_movie, update_movie, get_movie_list
 
 # Load ENV
 load_dotenv()
@@ -32,6 +32,8 @@ sh = logging.StreamHandler()
 sh.setLevel(logging.DEBUG)
 sh.setFormatter(log_format)
 logger.addHandler(sh)
+
+from sql_utils import add_movie, remove_movie, update_movie, get_movie_list
 
 # START BOT!
 bot = commands.Bot(command_prefix='!')
@@ -66,134 +68,182 @@ async def get_info(ctx):
 @bot.command(name='add', help='Add a movie to the movie list')
 async def add(ctx, *args):
     logger.debug('Parsing command - ADD')
+    try:
+        # Query formatted username
+        user = parse_username(ctx.message.author)
+        title = parse_movie_name(args)
 
-    # Query formatted username
-    user = parse_username(ctx.message.author)
-    title = parse_movie_name(args)
+        movie_collection = get_movie_list()
+        movie_dict = {movie['title']:movie for movie in movie_collection}
 
-    movie_collection = get_movie_list()
-    movie_dict = {movie['title']:movie for movie in movie_collection}
+        add_response = f'Adding {title} to the movie list! Thanks for the suggestion, {user}.'
 
-    add_response = f'Adding {title} to the movie list! Thanks for the suggestion, {user}.'
-
-    # Check for movie in list
-    if not title in movie_dict.keys():
-        try:
-            add_movie(
-                key='text',
-                title=title,
-                submitter=ctx.message.author,
-                votes=1
-            )
-        except Exception as e:
-            logger.debug('Failed to write to sql')
-            logger.debug(f'ERR {e}')
-
-    else:
-        user_full = str(ctx.message.author)
-        voter_list = movie_dict[title]['voters'].split(',')
-        if not user_full in voter_list:
-            title, new_votes = vote_for_movie(movie_dict[title], user_full)
-            add_response = f'That movie was already on the list, so we voted for it instead! {title} now has {new_votes} votes!'
+        # Check for movie in list
+        if not title in movie_dict.keys():
+            try:
+                add_movie(
+                    key='text',
+                    title=title,
+                    submitter=ctx.message.author,
+                    votes=1
+                )
+            except Exception as e:
+                logger.debug('Failed to write to sql')
+                logger.debug(f'ERR {e}')
 
         else:
-            add_response = f'{title} is already on the list!'
+            user_full = str(ctx.message.author)
+            voter_list = movie_dict[title]['voters'].split(',')
+            if not user_full in voter_list:
+                title, new_votes = vote_for_movie(movie_dict[title], user_full)
+                add_response = f'That movie was already on the list, so we voted for it instead! {title} now has {new_votes} votes!'
 
-    await ctx.send(add_response)
+            else:
+                add_response = f'{title} is already on the list!'
+
+        await ctx.send(add_response)
+        logger.debug('Completed command - ADD')
+
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(f'ADD Error - {e}')
+        logger.error(f'Traceback - {trace}')
+
+    return
 
 @bot.command(name='vote', help='Vote for a movie!')
 async def vote(ctx, *args):
     logger.debug('Parsing command - VOTE')
-
-    user = parse_username(ctx.message.author)
-    title = parse_movie_name(args)
+    try:
+        user = parse_username(ctx.message.author)
+        title = parse_movie_name(args)
+            
+        movie_collection = get_movie_list()
+        movie_dict = {movie['title']:movie for movie in movie_collection}
         
-    movie_collection = get_movie_list()
-    movie_dict = {movie['title']:movie for movie in movie_collection}
-    
-    if title in movie_dict.keys(): 
-        user_full = str(ctx.message.author)
-        voter_list = movie_dict[title]['voters'].split(',')
-        if not user_full in voter_list:
-            title, new_votes = vote_for_movie(movie_dict[title], user_full)
-            vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
+        if title in movie_dict.keys(): 
+            user_full = str(ctx.message.author)
+            voter_list = movie_dict[title]['voters'].split(',')
+            if not user_full in voter_list:
+                title, new_votes = vote_for_movie(movie_dict[title], user_full)
+                vote_response = f'Thanks for voting! {title} now has {new_votes} votes!'
+            else:
+                vote_response = f"Sorry {user}, you've already voted for {title}!"
         else:
-            vote_response = f"Sorry {user}, you've already voted for {title}!"
-    else:
-        vote_response = f"Sorry {user}, {title} isn't on the list! Try to !add it instead"
+            vote_response = f"Sorry {user}, {title} isn't on the list! Try to !add it instead"
 
-    await ctx.send(vote_response)
+        await ctx.send(vote_response)
+        logger.debug('Completed command - VOTE')
+
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(f'VOTE Error - {e}')
+        logger.error(f'Traceback - {trace}')
+    
+    return
 
 @bot.command(name='list', help='Shows the current movie list')
 async def list_movies(ctx):
     logger.debug('Parsing command - LIST')
-    
-    list_response = 'Current movie list...\n'
-    movie_collection = get_movie_list()
-    
-    if len(movie_collection) == 0:
-        list_response += 'Empty!\n'
-    else:
-        movie_tup_list = []
-        for movie in movie_collection:
-            new_tup = (movie,movie['votes'])
-            movie_tup_list.append(new_tup)
-        movie_tup_list.sort(key=takeSecond, reverse=True)
+    try:
+        list_response = 'Current movie list...\n'
+        logger.debug('Checking database')
+        movie_collection = get_movie_list()
         
-        for i, movie_tup in enumerate(movie_tup_list):
-            movie, votes = movie_tup
-            list_response += f"#{i+1} - {movie['title']} ({votes} points)\n"
+        if len(movie_collection) == 0:
+            logger.debug('Empty list')
+            list_response += 'Empty!\n'
+        else:
+            logger.debug('Compiling sorted list')
+            movie_tup_list = []
+            for movie in movie_collection:
+                new_tup = (movie,movie['votes'])
+                movie_tup_list.append(new_tup)
+            movie_tup_list.sort(key=takeSecond, reverse=True)
+            
+            for i, movie_tup in enumerate(movie_tup_list):
+                movie, votes = movie_tup
+                new_line = f"#{i+1} - {movie['title']} ({votes} points)\n"
+                line_limit = 2000
+                if (len(list_response)+len(new_line)) >= line_limit:
+                    await ctx.send(list_response)
+                    list_response = 'Movie list, continued...\n'
+                list_response += new_line
 
-    await ctx.send(list_response)
+        await ctx.send(list_response)
+        logger.debug('Completed command - LIST')
+
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(f'LIST Error - {e}')
+        logger.error(f'Traceback - {trace}')
+
+    return
 
 
 @bot.command(name='remove', help='Remove movie from movie list')
 async def remove(ctx, *args):
     logger.debug('Parsing command - REMOVE')
+    try:
+        # Query formatted username
+        user = parse_username(ctx.message.author)
+        movie_name = parse_movie_name(args)
 
-    # Query formatted username
-    user = parse_username(ctx.message.author)
-    movie_name = parse_movie_name(args)
+        remove_response = f'Removing {movie_name} from the movie list! Remember, {user}, with great power comes great responsibility.'
 
-    remove_response = f'Removing {movie_name} from the movie list! Remember, {user}, with great power comes great responsibility.'
+        # Pull table, format into simple list of titles
+        movie_collection = get_movie_list()
+        movie_list = [x['title'] for x in movie_collection]
 
-    # Pull table, format into simple list of titles
-    movie_collection = get_movie_list()
-    movie_list = [x['title'] for x in movie_collection]
+        # Check for movie in list
+        if movie_name in movie_list:
+            remove_movie(movie_name)
+        else:
+            remove_response = f"{movie_name} isn't on the list, but nice try!"
 
-    # Check for movie in list
-    if movie_name in movie_list:
-        remove_movie(movie_name)
-    else:
-        remove_response = f"{movie_name} isn't on the list, but nice try!"
+        await ctx.send(remove_response)
+        logger.debug('Completed command - REMOVE')
 
-    await ctx.send(remove_response)
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(f'REMOVE Error - {e}')
+        logger.error(f'Traceback - {trace}')
+
+    return
 
 
 @bot.command(name='pickmovie', help='Randomly select a movie from the list')
 async def pickmovie(ctx):
     logger.debug('Parsing command - PICK')
+    try:
+        pick_response = f'Picking a movie from the list, drumroll please....\n\n'
 
-    pick_response = f'Picking a movie from the list, drumroll please....\n\n'
+        # Create weighted list
+        
+        movie_collection = get_movie_list()
+        minimum_threshold = 3
+        vote_weight = 2
 
-    # Create weighted list
-    
-    movie_collection = get_movie_list()
-    minimum_threshold = 3
-    vote_weight = 2
+        selection_list = []
+        for movie in movie_collection:
+            if int(movie['votes']) >= minimum_threshold:
+                vote_score = int(movie['votes'])*vote_weight
+                for i in range(vote_score):
+                    selection_list.append(movie['title'])
 
-    selection_list = []
-    for movie in movie_collection:
-        if int(movie['votes']) >= minimum_threshold:
-            vote_score = int(movie['votes'])*vote_weight
-            for i in range(vote_score):
-                selection_list.append(movie['title'])
+        selection = random.choice(selection_list)
+        pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
+        # remove_movie(selection)
 
-    selection = random.choice(selection_list)
-    pick_response += f"Tonight we'll be watching {selection}! Huzzah!"
-    # remove_movie(selection)
+        await ctx.send(pick_response)
+        logger.debug('Completed command - PICK')
 
-    await ctx.send(pick_response)
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(f'PICK Error - {e}')
+        logger.error(f'Traceback - {trace}')
+
+    return
 
 
 @bot.event
@@ -227,8 +277,10 @@ async def on_reaction_add(reaction, user):
             vote_response = 'Looks like {} is not on the list anymore. Try another one!'.format(title)
 
         await message.channel.send(vote_response)
+        logger.debug('Completed command - VOTE REACT')
 
     else:
+        logger.debug('Completed command with no action- REACT')
         return  # remove this if we do anything else with reactions
 
 
