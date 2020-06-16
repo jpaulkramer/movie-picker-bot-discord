@@ -5,6 +5,8 @@ import random
 from discord.ext import commands
 import psycopg2
 import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 from sql_utils import add_movie, remove_movie, update_movie, get_movie_list
 
@@ -15,30 +17,25 @@ GUILD = os.getenv('DISCORD_GUILD')
 
 # Logging Handler
 log_root = r'logs'
+date = datetime.today().strftime('%Y-%m-%d')
 log_format = logging.Formatter("%(asctime)s - %(name)s - %(funcName)s | %(levelname)s - %(lineno)s - %(message)s")
-
 if not os.path.exists(log_root):
     os.makedirs(log_root)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-date = datetime.today().strftime('%Y-%m-%d')
 log_file = os.path.join(log_root, f'{date}_movie-bot.log')
+
 fh = logging.FileHandler(log_file, mode='a')
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(log_format)
+logger.addHandler(fh)
 
 sh = logging.StreamHandler()
 sh.setLevel(logging.DEBUG)
 sh.setFormatter(log_format)
-
-logger.addHandler(fh)
 logger.addHandler(sh)
-
-logger.info('Bot initialized')
 
 # START BOT!
 bot = commands.Bot(command_prefix='!')
+logger.debug('Bot initialized')
 
 @bot.event
 async def on_ready():
