@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import sys
 from datetime import datetime
@@ -12,7 +14,7 @@ logger.setLevel(logging.DEBUG)
 
 # Load ENV
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN_DEV')
+TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
 # Logging Handler
